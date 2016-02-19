@@ -37,6 +37,9 @@ mi_listcomp.signal_connect("activate"){
   splash = SplashScreen.new
   splash.start
 }
+#Node Structure
+
+Node = Struct.new("Node",:iter, :nthread, :nnotify)
 
 #Columns order and type
 CALIVE,CIP,CCOMPUTER,CDOMAIN,CDESCRIPTION,CUPDATED = *(0..5).to_a
@@ -154,35 +157,52 @@ button.signal_connect("clicked"){
 $model = create_model
 $check = false
 button.set_label("Start")
-$di = 1
+$di = []
 treeview = Gtk::TreeView.new($model)
 add_columns(treeview)
 sw.add(treeview)
 
+def check_node(_ip,iter,count)
+  time = Time.new
+  node = Node.new
+  node.iter = iter
+  i = 0
+  node.nthread = Thread.new do
+    puts "in thread"
+    while true
+      i += 1
+    checkping = Net::Ping::External.new(_ip[0])
+    alive = checkping.ping?
+    if alive == true
+      style = "green"
+    else
+      style = "red"
+#      enotify = SendMail.new("Node #{node[0]} is down",1)
+#      enotify.send
+    end
+    puts "#{_ip[0]} #{checkping.ping?}"
+    $model.set_value(iter,0,checkping.ping?)
+    $model.set_value(iter,1,'<span foreground="'+style+'">'+_ip[0]+'</span>')
+    $model.set_value(iter,2,'<span foreground="'+style+'">'+_ip[1]+'</span>')
+    $model.set_value(iter,3,'<span foreground="'+style+'">'+_ip[2]+'</span>')
+    $model.set_value(iter,4,'<span foreground="'+style+'">'+_ip[3]+'</span>')
+    $model.set_value(iter,5,'<span foreground="'+style+'">A'+i.to_s+' @ '+time.inspect+'</span>')
+    sleep(3)
+  end
+  end
+end
+
 def loopping
   i = 0
-  $t = Thread.new do
-    while $check == true
-      time = Time.new
-      i += 1
-      $nodes.each_with_index{|node,id|
-        alive = Net::Ping::External.new(node[0])
-        isalive = alive.ping?
-        if isalive == true
-          style = "black"
-        else
-          style = "red"
-        end
-        $model.set_value($iters[id],0,alive.ping?)
-        $model.set_value($iters[id],1,'<span foreground="'+style+'">'+node[0]+'</span>')
-        $model.set_value($iters[id],2,'<span foreground="'+style+'">'+node[1]+'</span>')
-        $model.set_value($iters[id],3,'<span foreground="'+style+'">'+node[2]+'</span>')
-        $model.set_value($iters[id],4,'<span foreground="'+style+'">'+node[3]+'</span>')
-        $model.set_value($iters[id],5,'<span foreground="'+style+'">A'+i.to_s+' @ '+time.inspect+'</span>')
+    puts "Starting the check"
+    i += 1
+    puts i.to_s
+    $nodes.each_with_index{|node,id|
+      puts "id:#{id}: #{node}"
+      check_node(node,$iters[id],i)
+
+#        Thread.kill(d.nthread)
       }
-      sleep(3)
-    end
-  end
 end
 
 
