@@ -6,6 +6,7 @@ require "./software_deployment.rb"
 require "./ldap.rb"
 require "./splash.rb"
 require "csv"
+require "./common.rb"
 
 $iters = []
 
@@ -60,7 +61,7 @@ def add_columns(treeview)
   renderer = Gtk::CellRendererText.new
   column = Gtk::TreeViewColumn.new('IP Address',
            renderer,
-           'text' => CIP)
+           'markup' => CIP)
   column.set_sort_column_id(CIP)
   treeview.append_column(column)
 
@@ -68,7 +69,7 @@ def add_columns(treeview)
   renderer = Gtk::CellRendererText.new
   column = Gtk::TreeViewColumn.new('Computer Name',
            renderer,
-           'text' => CCOMPUTER)
+           'markup' => CCOMPUTER)
   column.set_sort_column_id(CCOMPUTER)
   treeview.append_column(column)
 
@@ -76,7 +77,7 @@ def add_columns(treeview)
   renderer = Gtk::CellRendererText.new
   column = Gtk::TreeViewColumn.new('Domain',
            renderer,
-           'text' => CDOMAIN)
+           'markup' => CDOMAIN)
   column.set_sort_column_id(CDOMAIN)
   treeview.append_column(column)
 
@@ -84,7 +85,7 @@ def add_columns(treeview)
   renderer = Gtk::CellRendererText.new
   column = Gtk::TreeViewColumn.new('Description',
            renderer,
-           'text' => CDESCRIPTION)
+           'markup' => CDESCRIPTION)
   column.set_sort_column_id(CDESCRIPTION)
   treeview.append_column(column)
 
@@ -118,33 +119,41 @@ def create_model
   #Starting the ldap object
   $nodes = CSV.read('nodes.db')
   $nodes.each_with_index{|node,id|
-    iter = store.append
-    iter[1] = node[0]
-    iter[2] = node[1]
-    iter[3] = node[2]
-    iter[4] = node[3]
+    # Testing of the node is alive and painting the iter accordingly
     alive = Net::Ping::External.new(node[0])
-    iter[0] =  alive.ping?
+    isalive = alive.ping?
+    if isalive == true
+      bckgrnd = "black"
+    else
+      bckgrnd = "red"
+    end
+    iter = store.append
+    iter[1] = '<span foreground="'+bckgrnd+'">'+node[0]+'</span>'
+    iter[2] = '<span foreground="'+bckgrnd+'">'+node[1]+'</span>'
+    iter[3] = '<span foreground="'+bckgrnd+'">'+node[2]+'</span>'
+    iter[4] = '<span foreground="'+bckgrnd+'">'+node[3]+'</span>'
+    iter[0] = isalive
     $iters.push(iter)
   }
   return store
 end
 
 button.signal_connect("clicked"){
-  if $di == 0
-    $di = 1
+  if $check == true
+    $check = false
+    Thread.kill($t)
+    button.set_label('Start')
+  else
+    $check = true
     button.set_label('Stop')
     loopping
-  else
-    $di = 0
-    button.set_label('Start')
   end
 }
 
 #building the treeview
 $model = create_model
-$check = true
-button.set_label("Stop")
+$check = false
+button.set_label("Start")
 $di = 1
 treeview = Gtk::TreeView.new($model)
 add_columns(treeview)
@@ -152,15 +161,24 @@ sw.add(treeview)
 
 def loopping
   i = 0
-  t = Thread.new do
+  $t = Thread.new do
     while $check == true
       time = Time.new
-#      i += 1
-#      iter = $model.append
+      i += 1
       $nodes.each_with_index{|node,id|
         alive = Net::Ping::External.new(node[0])
+        isalive = alive.ping?
+        if isalive == true
+          style = "black"
+        else
+          style = "red"
+        end
         $model.set_value($iters[id],0,alive.ping?)
-        $model.set_value($iters[id],5,"<span foreground=red>A#{i.to_s} @ #{time.inspect}</span>")
+        $model.set_value($iters[id],1,'<span foreground="'+style+'">'+node[0]+'</span>')
+        $model.set_value($iters[id],2,'<span foreground="'+style+'">'+node[1]+'</span>')
+        $model.set_value($iters[id],3,'<span foreground="'+style+'">'+node[2]+'</span>')
+        $model.set_value($iters[id],4,'<span foreground="'+style+'">'+node[3]+'</span>')
+        $model.set_value($iters[id],5,'<span foreground="'+style+'">A'+i.to_s+' @ '+time.inspect+'</span>')
       }
       sleep(3)
     end
