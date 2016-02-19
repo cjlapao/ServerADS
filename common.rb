@@ -8,7 +8,7 @@ class SendMail
     Mail.defaults { delivery_method :smtp, smtp }
     @@message = msg
     if trgt == 1
-      @@subject = "Node Down"
+      @@subject = msg
     end
   end
 

@@ -39,7 +39,7 @@ mi_listcomp.signal_connect("activate"){
 }
 #Node Structure
 
-Node = Struct.new("Node",:iter, :nthread, :nnotify)
+Node = Struct.new("Node",:iter, :thread, :status, :notify)
 
 #Columns order and type
 CALIVE,CIP,CCOMPUTER,CDOMAIN,CDESCRIPTION,CUPDATED = *(0..5).to_a
@@ -167,41 +167,45 @@ def check_node(_ip,iter,count)
   node = Node.new
   node.iter = iter
   i = 0
-  node.nthread = Thread.new do
-    puts "in thread"
+  node.thread = Thread.new do
     while true
       i += 1
     checkping = Net::Ping::External.new(_ip[0])
     alive = checkping.ping?
     if alive == true
       style = "green"
+      node.status = true
+      if node.status != node.notify
+        enotify = SendMail.new("Node #{node[0]} is up",1)
+        enotify.send
+        node.notify = true
+      end
     else
       style = "red"
-#      enotify = SendMail.new("Node #{node[0]} is down",1)
-#      enotify.send
+      node.status = false
+      if node.status != node.notify
+        enotify = SendMail.new("Node #{node[0]} is down",1)
+        enotify.send
+        node.notify = false
+      end
     end
-    puts "#{_ip[0]} #{checkping.ping?}"
     $model.set_value(iter,0,checkping.ping?)
     $model.set_value(iter,1,'<span foreground="'+style+'">'+_ip[0]+'</span>')
     $model.set_value(iter,2,'<span foreground="'+style+'">'+_ip[1]+'</span>')
     $model.set_value(iter,3,'<span foreground="'+style+'">'+_ip[2]+'</span>')
     $model.set_value(iter,4,'<span foreground="'+style+'">'+_ip[3]+'</span>')
     $model.set_value(iter,5,'<span foreground="'+style+'">A'+i.to_s+' @ '+time.inspect+'</span>')
-    sleep(3)
+    sleep(1)
   end
   end
 end
 
 def loopping
   i = 0
-    puts "Starting the check"
     i += 1
     puts i.to_s
     $nodes.each_with_index{|node,id|
-      puts "id:#{id}: #{node}"
       check_node(node,$iters[id],i)
-
-#        Thread.kill(d.nthread)
       }
 end
 
